@@ -2,73 +2,54 @@ const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
 
-// Configuración de la base de datos
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
   port: process.env.DB_PORT || 5432,
   database: process.env.DB_NAME || 'image_analysis',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'your_password',
-  max: 20, // máximo número de conexiones en el pool
+  max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
 });
 
-// Función para inicializar la base de datos
-async function initializeDatabase() {
-  console.log('🔧 Inicializando base de datos...');
-  
+async function initializeDatabase() {  
   try {
-    // Intentar crear la base de datos si no existe
     await createDatabaseIfNotExists();
-    
-    // Crear las tablas
     await createTables();
-    
-    console.log('✅ Base de datos inicializada correctamente');
     return true;
   } catch (error) {
-    console.error('❌ Error inicializando base de datos:', error.message);
     throw error;
   }
 }
 
-// Función para crear la base de datos si no existe
 async function createDatabaseIfNotExists() {
-  // Conectar a PostgreSQL sin especificar base de datos
   const adminPool = new Pool({
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 5432,
-    database: 'postgres', // Base de datos por defecto
+    database: 'postgres',
     user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'your_password',
+    password: process.env.DB_PASSWORD || '123456',
   });
 
   try {
     const dbName = process.env.DB_NAME || 'image_analysis';
     
-    // Verificar si la base de datos existe
     const result = await adminPool.query(
       'SELECT 1 FROM pg_database WHERE datname = $1',
       [dbName]
     );
 
     if (result.rows.length === 0) {
-      console.log(`📦 Creando base de datos: ${dbName}`);
       await adminPool.query(`CREATE DATABASE ${dbName}`);
-      console.log(`✅ Base de datos ${dbName} creada`);
     } else {
-      console.log(`✅ Base de datos ${dbName} ya existe`);
     }
   } catch (error) {
-    console.log('ℹ️ No se pudo crear la base de datos automáticamente:', error.message);
-    console.log('🔍 Asegúrate de que la base de datos existe manualmente');
   } finally {
     await adminPool.end();
   }
 }
 
-// Función para crear las tablas
 async function createTables() {
   const createTablesSQL = `
     -- Crear tabla para almacenar análisis de imágenes
@@ -94,18 +75,8 @@ async function createTables() {
     CREATE INDEX IF NOT EXISTS idx_image_tags_analysis_id ON image_tags(analysis_id);
     CREATE INDEX IF NOT EXISTS idx_image_analysis_created_at ON image_analysis(created_at);
   `;
-
-  try {
-    console.log('📋 Creando tablas...');
-    await pool.query(createTablesSQL);
-    console.log('✅ Tablas creadas/verificadas correctamente');
-  } catch (error) {
-    console.error('❌ Error creando tablas:', error.message);
-    throw error;
-  }
 }
 
-// Función para insertar análisis de imagen
 async function insertImageAnalysis(uploadId, originalFilename, filePath) {
   const query = `
     INSERT INTO image_analysis (upload_id, original_filename, file_path)
@@ -117,12 +88,10 @@ async function insertImageAnalysis(uploadId, originalFilename, filePath) {
     const result = await pool.query(query, [uploadId, originalFilename, filePath]);
     return result.rows[0].id;
   } catch (error) {
-    console.error('Error insertando análisis de imagen:', error);
     throw error;
   }
 }
 
-// Función para insertar tags de una imagen
 async function insertImageTags(analysisId, tags) {
   const client = await pool.connect();
   
@@ -140,14 +109,12 @@ async function insertImageTags(analysisId, tags) {
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Error insertando tags:', error);
     throw error;
   } finally {
     client.release();
   }
 }
 
-// Función para obtener análisis con sus tags
 async function getImageAnalysis(analysisId) {
   const query = `
     SELECT 
@@ -172,7 +139,6 @@ async function getImageAnalysis(analysisId) {
     const result = await pool.query(query, [analysisId]);
     return result.rows[0];
   } catch (error) {
-    console.error('Error obteniendo análisis:', error);
     throw error;
   }
 }
@@ -197,17 +163,12 @@ async function getRecentAnalysis(limit = 10) {
     const result = await pool.query(query, [limit]);
     return result.rows;
   } catch (error) {
-    console.error('Error obteniendo análisis recientes:', error);
     throw error;
   }
 }
-
-// Función para cerrar la conexión del pool
 function closePool() {
   return pool.end();
 }
-
-// Función para probar la conexión
 async function testConnection() {
   try {
     const client = await pool.connect();

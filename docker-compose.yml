@@ -1,5 +1,4 @@
 services:
-  # Aplicación Node.js
   app:
     build: .
     ports:
@@ -8,7 +7,6 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      # Variables de entorno para la app (deben coincidir con la base de datos)
       - NODE_ENV=production
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -23,7 +21,6 @@ services:
       - app-network
     restart: unless-stopped
 
-  # Base de datos PostgreSQL
   postgres:
     image: postgres:15
     environment:
@@ -44,7 +41,6 @@ services:
       retries: 5
       start_period: 30s
 
-  # PGAdmin (opcional, para administrar la BD)
   pgadmin:
     image: dpage/pgadmin4
     environment:

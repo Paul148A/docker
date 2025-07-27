@@ -15,16 +15,12 @@
             <br>
             <button onclick="uploadImage()" id="uploadBtn">Analizar Imagen</button>
             <button onclick="toggleHistory()" class="secondary-btn">Ver Historial</button>
-            <button onclick="loadStats()" class="secondary-btn">Estadísticas</button>
         </div>
         
         <div id="result"></div>
     </div>
     
     <div class="container hidden" id="historyContainer">
-        <h2>📊 Estadísticas</h2>
-        <div id="statsContainer"></div>
-        
         <h2>📚 Historial de Análisis</h2>
         <div id="historyList"></div>
     </div>
@@ -89,7 +85,6 @@
                     showResult(resultHTML, 'success');
                 }
             } catch (error) {
-                console.error('Error:', error);
                 showResult('Error de conexión. Intenta nuevamente.', 'error');
             } finally {
                 isAnalyzing = false;
@@ -110,7 +105,6 @@
             if (container.classList.contains('hidden')) {
                 container.classList.remove('hidden');
                 await loadHistory();
-                await loadStats();
             } else {
                 container.classList.add('hidden');
             }
@@ -145,45 +139,7 @@
 
                 historyList.innerHTML = historyHTML;
             } catch (error) {
-                console.error('Error cargando historial:', error);
                 historyList.innerHTML = '<p class="error">Error cargando historial</p>';
-            }
-        }
-
-        async function loadStats() {
-            const statsContainer = document.getElementById('statsContainer');
-            statsContainer.innerHTML = '<div class="loading"></div> Cargando estadísticas...';
-
-            try {
-                const response = await fetch('/stats');
-                const stats = await response.json();
-
-                let statsHTML = `
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-number">${stats.totalAnalysis}</div>
-                            <div>Análisis Totales</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number">${stats.totalTags}</div>
-                            <div>Tags Identificados</div>
-                        </div>
-                    </div>
-                `;
-
-                if (stats.topTags && stats.topTags.length > 0) {
-                    statsHTML += '<h3>🏆 Tags más frecuentes:</h3><ul class="tags-list">';
-                    stats.topTags.slice(0, 10).forEach(tag => {
-                        const avgConfidence = parseFloat(tag.avg_confidence).toFixed(1);
-                        statsHTML += `<li>🏷️ ${tag.tag_name} (${tag.frequency} veces - ${avgConfidence}% promedio)</li>`;
-                    });
-                    statsHTML += '</ul>';
-                }
-
-                statsContainer.innerHTML = statsHTML;
-            } catch (error) {
-                console.error('Error cargando estadísticas:', error);
-                statsContainer.innerHTML = '<p class="error">Error cargando estadísticas</p>';
             }
         }
 
@@ -213,14 +169,10 @@
                     });
                     detailHTML += '</ul>';
                 }
-
                 showResult(detailHTML, 'success');
-                
-                // Scroll to result
                 document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
                 
             } catch (error) {
-                console.error('Error cargando detalles:', error);
                 alert('Error cargando detalles del análisis');
             }
         }
@@ -230,7 +182,6 @@
             const container = document.getElementById('historyContainer');
             if (!container.classList.contains('hidden')) {
                 loadHistory();
-                loadStats();
             }
         }, 30000);
     </script>

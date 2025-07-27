@@ -6,10 +6,11 @@ Este proyecto es una aplicación Node.js que utiliza PostgreSQL como base de dat
 
 1. **Clona este repositorio:**
 
-2. **Levanta todos los servicios:**
-   ```sh
-   docker compose up --build
-   ```
+2. **Crear y Levantar todos los servicios:**
+   docker build -t imagga-app . (Crear)
+
+   docker compose up --build (Levantar)
+
    Esto iniciará:
    - La aplicación Node.js en `http://localhost:3000`
    - PostgreSQL en el contenedor `postgres`
