@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <title>Análisis de Imágenes</title>
+</head>
+<body>
+    <div class="container">
+        <h1>Análisis de Imágenes con Imagga</h1>
+        
+        <div class="upload-section">
+            <input type="file" id="imageInput" accept="image/*">
+            <br>
+            <button onclick="uploadImage()" id="uploadBtn">Analizar Imagen</button>
+            <button onclick="toggleHistory()" class="secondary-btn">Ver Historial</button>
+            <button onclick="loadStats()" class="secondary-btn">Estadísticas</button>
+        </div>
+        
+        <div id="result"></div>
+    </div>
+    
+    <div class="container hidden" id="historyContainer">
+        <h2>📊 Estadísticas</h2>
+        <div id="statsContainer"></div>
+        
+        <h2>📚 Historial de Análisis</h2>
+        <div id="historyList"></div>
+    </div>
+
+    <script>
+        let isAnalyzing = false;
+
+        async function uploadImage() {
+            const input = document.getElementById('imageInput');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            if (!input.files.length) {
+                showResult("Selecciona una imagen", 'error');
+                return;
+            }
+
+            if (isAnalyzing) return;
+
+            isAnalyzing = true;
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<span class="loading"></span> Analizando...';
+
+            const formData = new FormData();
+            formData.append("image", input.files[0]);
+
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.error) {
+                    showResult(`Error: ${result.error}`, 'error');
+                } else {
+                    let resultHTML = "<h3>✅ Análisis completado</h3>";
+                    
+                    if (result.analysisId) {
+                        resultHTML += `<p><strong>ID del análisis:</strong> ${result.analysisId}</p>`;
+                    }
+                    
+                    if (result.warning) {
+                        resultHTML += `<p class="warning">⚠️ ${result.warning}</p>`;
+                    }
+                    
+                    resultHTML += "<h4>🏷️ Etiquetas detectadas:</h4>";
+                    resultHTML += "<ul class='tags-list'>";
+                    
+                    result.tags.forEach(tag => {
+                        const confidence = parseFloat(tag.confidence);
+                        const emoji = confidence > 80 ? '🎯' : confidence > 60 ? '✅' : '📝';
+                        resultHTML += `<li>${emoji} ${tag.tag} (${tag.confidence}%)</li>`;
+                    });
+                    
+                    resultHTML += "</ul>";
+                    
+                    if (result.message) {
+                        resultHTML += `<p>💾 ${result.message}</p>`;
+                    }
+                    
+                    showResult(resultHTML, 'success');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showResult('Error de conexión. Intenta nuevamente.', 'error');
+            } finally {
+                isAnalyzing = false;
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = 'Analizar Imagen';
+            }
+        }
+
+        function showResult(content, type = '') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = content;
+            resultDiv.className = type;
+        }
+
+        async function toggleHistory() {
+            const container = document.getElementById('historyContainer');
+            
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                await loadHistory();
+                await loadStats();
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        async function loadHistory() {
+            const historyList = document.getElementById('historyList');
+            historyList.innerHTML = '<div class="loading"></div> Cargando historial...';
+
+            try {
+                const response = await fetch('/history?limit=20');
+                const history = await response.json();
+
+                if (history.length === 0) {
+                    historyList.innerHTML = '<p>No hay análisis previos</p>';
+                    return;
+                }
+
+                let historyHTML = '';
+                history.forEach(item => {
+                    const date = new Date(item.created_at).toLocaleString('es-ES');
+                    historyHTML += `
+                        <div class="history-item">
+                            <h4>📄 ${item.original_filename || 'Archivo sin nombre'}</h4>
+                            <p><strong>Fecha:</strong> ${date}</p>
+                            <p><strong>Tags encontrados:</strong> ${item.tags_count}</p>
+                            <p><strong>Upload ID:</strong> ${item.upload_id}</p>
+                            <button onclick="loadAnalysisDetails(${item.id})" class="secondary-btn">Ver detalles</button>
+                        </div>
+                    `;
+                });
+
+                historyList.innerHTML = historyHTML;
+            } catch (error) {
+                console.error('Error cargando historial:', error);
+                historyList.innerHTML = '<p class="error">Error cargando historial</p>';
+            }
+        }
+
+        async function loadStats() {
+            const statsContainer = document.getElementById('statsContainer');
+            statsContainer.innerHTML = '<div class="loading"></div> Cargando estadísticas...';
+
+            try {
+                const response = await fetch('/stats');
+                const stats = await response.json();
+
+                let statsHTML = `
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number">${stats.totalAnalysis}</div>
+                            <div>Análisis Totales</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${stats.totalTags}</div>
+                            <div>Tags Identificados</div>
+                        </div>
+                    </div>
+                `;
+
+                if (stats.topTags && stats.topTags.length > 0) {
+                    statsHTML += '<h3>🏆 Tags más frecuentes:</h3><ul class="tags-list">';
+                    stats.topTags.slice(0, 10).forEach(tag => {
+                        const avgConfidence = parseFloat(tag.avg_confidence).toFixed(1);
+                        statsHTML += `<li>🏷️ ${tag.tag_name} (${tag.frequency} veces - ${avgConfidence}% promedio)</li>`;
+                    });
+                    statsHTML += '</ul>';
+                }
+
+                statsContainer.innerHTML = statsHTML;
+            } catch (error) {
+                console.error('Error cargando estadísticas:', error);
+                statsContainer.innerHTML = '<p class="error">Error cargando estadísticas</p>';
+            }
+        }
+
+        async function loadAnalysisDetails(analysisId) {
+            try {
+                const response = await fetch(`/analysis/${analysisId}`);
+                const analysis = await response.json();
+
+                if (analysis.error) {
+                    alert('Error: ' + analysis.error);
+                    return;
+                }
+
+                let detailHTML = `<h3>📋 Detalles del Análisis #${analysisId}</h3>`;
+                detailHTML += `<p><strong>Archivo:</strong> ${analysis.original_filename}</p>`;
+                detailHTML += `<p><strong>Fecha:</strong> ${new Date(analysis.created_at).toLocaleString('es-ES')}</p>`;
+                detailHTML += `<p><strong>Upload ID:</strong> ${analysis.upload_id}</p>`;
+                
+                if (analysis.tags && analysis.tags.length > 0) {
+                    detailHTML += '<h4>🏷️ Tags detectados:</h4><ul class="tags-list">';
+                    analysis.tags.forEach(tag => {
+                        if (tag.tag_name) {
+                            const confidence = parseFloat(tag.confidence);
+                            const emoji = confidence > 80 ? '🎯' : confidence > 60 ? '✅' : '📝';
+                            detailHTML += `<li>${emoji} ${tag.tag_name} (${confidence.toFixed(2)}%)</li>`;
+                        }
+                    });
+                    detailHTML += '</ul>';
+                }
+
+                showResult(detailHTML, 'success');
+                
+                // Scroll to result
+                document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+                
+            } catch (error) {
+                console.error('Error cargando detalles:', error);
+                alert('Error cargando detalles del análisis');
+            }
+        }
+
+        // Auto-refresh history every 30 seconds if visible
+        setInterval(() => {
+            const container = document.getElementById('historyContainer');
+            if (!container.classList.contains('hidden')) {
+                loadHistory();
+                loadStats();
+            }
+        }, 30000);
+    </script>
+</body>
+</html>
